@@ -1,0 +1,15 @@
+# Konfigurasi lokal (berisi kata sandi, jangan di-commit)
+.env
+
+# Isi folder unggahan tidak masuk repositori, hanya kerangkanya
+gerbang/unggahan/*/*
+!gerbang/unggahan/*/.gitkeep
+
+# Dependensi dan berkas bawaan editor / sistem
+vendor/
+node_modules/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
