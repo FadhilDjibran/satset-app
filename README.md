@@ -2,31 +2,55 @@
 
 **Semua Bisa, Semua Satset.**
 
-SATSET adalah aplikasi ride-hailing berbasis web dengan tawar-menawar tarif antara penumpang dan pengemudi. Proyek ini dikerjakan oleh Kelompok 1 untuk mata kuliah Manajemen Proyek IT (F081), UPN "Veteran" Jawa Timur.
+SATSET adalah aplikasi ride-hailing berbasis web untuk kendaraan roda 4 dengan tawar-menawar tarif antara penumpang dan driver. Proyek ini dikerjakan oleh Kelompok 1 untuk mata kuliah Manajemen Proyek IT (F081), UPN "Veteran" Jawa Timur.
 
-## Fitur Utama
+## Aktor
 
-- Tawar-menawar tarif (maksimal 3 ronde, dengan timer)
-- Mode Searah: menampilkan pesanan yang searah dengan perjalanan pulang pengemudi
-- Bantuan dan Laporan Masalah (reporting) dengan portal pengelola
-- Dompet digital simulasi dan rincian pendapatan bersih pengemudi
-- Peta dan estimasi rute (Leaflet.js, OpenStreetMap, OSRM)
+| Aktor | Portal | Peran |
+|---|---|---|
+| Penumpang | `gerbang/penumpang/` | Memesan, mengajukan harga, melacak perjalanan, memberi rating, dan melapor. |
+| Driver | `gerbang/pengemudi/` | Melihat pesanan, menawar, menjalankan perjalanan, memakai Mode Searah, dan mengelola saldo komisi. |
+| Admin (Pengelola) | `gerbang/pengelola/` | Meninjau laporan, memberi sanksi, mengelola pengguna, dan top-up saldo simulasi. |
+
+## Modul dan Fitur
+
+| Modul | Isi |
+|---|---|
+| Akun | Registrasi, login per peran, profil, dan data kendaraan driver. |
+| Pemesanan | Pilih titik di peta, rute dan estimasi (OSRM), tarif rekomendasi dengan rentang wajar, batalkan pesanan. |
+| Tawar-menawar | Maksimal 3 ronde dengan timer dan penanda "Tawaran terakhir", pembaruan tanpa muat ulang (AJAX). |
+| Mode Searah | Tombol "Pulang" menyaring pesanan yang searah jalan pulang driver. |
+| Perjalanan | Posisi driver dan status perjalanan secara langsung di peta, serta riwayat. |
+| Dompet | Saldo awal simulasi Rp 100.000, rincian pendapatan bersih, dan komisi dipotong dari saldo (tanpa uang sungguhan). |
+| Bantuan | Panduan, laporan beserta bukti, tinjauan dan sanksi oleh admin. |
+| Rating | Penumpang dan driver saling menilai 1 sampai 5 setelah perjalanan selesai. |
+| Catatan Pesanan | Catatan satu arah dari penumpang ke driver (maksimal 150 karakter). |
+
+Rincian lengkap ada di dokumen Kebutuhan Sistem (UR, FR, hak akses, dan aturan bisnis BR). Setiap berkas PHP di proyek ini memuat ID FR dan BR yang menjadi tanggung jawabnya di bagian atas berkas.
 
 ## Teknologi
 
-PHP native, MySQL, Leaflet.js, JavaScript (AJAX/fetch), XAMPP, Visual Studio Code, Git dan GitHub.
+PHP native, MySQL, Leaflet.js, OpenStreetMap, OSRM, JavaScript (AJAX/fetch), XAMPP, Visual Studio Code, Git dan GitHub.
 
 ## Struktur Folder
 
 ```
 satset-app/
-├── gerbang/        titik masuk web: akses, penumpang, pengemudi, pengelola, xhr, statis, unggahan
-├── logika/         aturan bisnis (akun, pesanan, negosiasi, tarif, searah, laporan, dst.)
+├── gerbang/        titik masuk web
+│   ├── index.php   pengalihan sesuai peran
+│   ├── akses/      daftar, masuk, keluar
+│   ├── penumpang/  beranda, pesan, tawaran, perjalanan, riwayat, rating, bantuan, laporan, profil
+│   ├── pengemudi/  beranda, searah, perjalanan, dompet, kendaraan, riwayat, rating, bantuan, laporan, profil
+│   ├── pengelola/  dasbor, pengguna, laporan, tinjau-laporan, dompet, riwayat, bantuan, profil
+│   ├── xhr/        titik akhir JSON untuk polling dan aksi AJAX
+│   ├── statis/     gaya, skrip, ikon, vendor (Leaflet)
+│   └── unggahan/   foto profil, kendaraan, dan bukti laporan
+├── logika/         aturan bisnis per modul
 ├── kueri/          seluruh perintah SQL (PDO)
 ├── komponen/       kerangka halaman dan elemen tampilan yang dipakai ulang
-├── rangka/         inisialisasi: muat, konfigurasi, koneksi, sesi, penjaga
-├── basisdata/      skema dan data awal
-├── dokumen/        laporan, hasil wawancara, mockup
+├── rangka/         muat, konfigurasi, koneksi, sesi, penjaga
+├── basisdata/      skema dan data awal (termasuk akun admin)
+├── dokumen/        laporan, hasil wawancara, kebutuhan sistem, mockup
 ├── .env.contoh     contoh konfigurasi lokal
 └── README.md
 ```
@@ -37,13 +61,6 @@ satset-app/
 2. Buat database `satset` di phpMyAdmin, lalu impor berkas di `basisdata/` (setelah tersedia).
 3. Salin `.env.contoh` menjadi `.env`, lalu sesuaikan isinya.
 4. Buka `http://localhost/satset-app/gerbang/` di peramban.
-
-## Alur Kerja Git
-
-- `main`: versi stabil.
-- `develop`: tempat semua fitur digabung.
-- `fitur/<nama-fitur>`: cabang kerja per fitur, digabung ke `develop` lewat pull request dan di-review minimal satu anggota lain.
-- Awalan pesan commit: `fitur:`, `perbaikan:`, `dok:`.
 
 ## Tim
 
