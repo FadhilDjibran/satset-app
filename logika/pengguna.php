@@ -9,6 +9,20 @@
 
 require_once __DIR__ . '/../kueri/kueri_pengguna.php';
 
+/** Data daftar untuk view HTML; ambil satu ekstra untuk mengetahui halaman berikutnya. */
+function dataHalamanPengguna(int $halaman): array
+{
+    if ($halaman < 1 || $halaman > 1000000) {
+        throw new InvalidArgumentException('Nomor halaman tidak valid.');
+    }
+    $perHalaman = 20;
+    $baris = daftarPengguna($perHalaman + 1, ($halaman - 1) * $perHalaman);
+    return [
+        'pengguna' => array_slice($baris, 0, $perHalaman),
+        'ada_berikutnya' => count($baris) > $perHalaman,
+    ];
+}
+
 function validasiDataPengguna(array $data, bool $baru): array
 {
     $diizinkan = $baru
@@ -31,7 +45,9 @@ function validasiDataPengguna(array $data, bool $baru): array
         if (!is_string($data[$kolom]) || trim($data[$kolom]) === '' || mb_strlen($data[$kolom], 'UTF-8') > $maksimal) {
             throw new InvalidArgumentException("{$kolom} wajib berupa teks, tidak kosong, maksimal {$maksimal} karakter.");
         }
-        $data[$kolom] = trim($data[$kolom]);
+        if ($kolom !== 'password') {
+            $data[$kolom] = trim($data[$kolom]);
+        }
     }
 
     if ($baru) {
@@ -54,8 +70,8 @@ function validasiDataPengguna(array $data, bool $baru): array
         throw new InvalidArgumentException('Status akun tidak valid.');
     }
     if (isset($data['password'])) {
-        if (strlen($data['password']) < 8) {
-            throw new InvalidArgumentException('Password minimal 8 karakter.');
+        if (strlen($data['password']) < 8 || strlen($data['password']) > 72) {
+            throw new InvalidArgumentException('Password harus 8-72 byte.');
         }
         $data['password_hash'] = password_hash($data['password'], PASSWORD_DEFAULT);
         unset($data['password']);

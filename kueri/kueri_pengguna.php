@@ -11,6 +11,14 @@ require_once __DIR__ . '/../rangka/koneksi.php';
 // Kolom password_hash hanya dibaca oleh alur autentikasi, bukan respons profil.
 const KOLOM_PENGGUNA_PUBLIK = 'id, nama, email, nomor_hp, peran, status_akun, foto_profil, dibuat_pada, diperbarui_pada';
 
+/** Hanya dipakai logika login; jangan kembalikan password_hash sebagai JSON. */
+function cariPenggunaUntukLogin(string $email): ?array
+{
+    $perintah = koneksiDatabase()->prepare('SELECT id, password_hash, status_akun FROM `user` WHERE email = :email');
+    $perintah->execute(['email' => $email]);
+    return $perintah->fetch() ?: null;
+}
+
 function cariPengguna(int $id): ?array
 {
     $perintah = koneksiDatabase()->prepare('SELECT ' . KOLOM_PENGGUNA_PUBLIK . ' FROM `user` WHERE id = :id');
