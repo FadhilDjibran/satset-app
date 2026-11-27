@@ -1,5 +1,5 @@
 <?php
-/** Endpoint CRUD pengguna; hanya admin yang telah login (FR-03, FR-31). */
+/** Controller HTTP CRUD pengguna: baca request -> service logika -> respons JSON. */
 
 require_once __DIR__ . '/../../rangka/penjaga.php';
 
@@ -19,6 +19,14 @@ try {
     if ($metode !== 'GET') {
         wajibTokenCsrf();
     }
+    $multipart = str_starts_with(strtolower($_SERVER['CONTENT_TYPE'] ?? ''), 'multipart/form-data;');
+    // PHP memproses file multipart pada POST. _method=PUT dipakai untuk update foto.
+    if ($metode === 'POST' && $multipart && isset($_POST['_method'])) {
+        if ($_POST['_method'] !== 'PUT') {
+            throw new InvalidArgumentException('_method hanya boleh PUT.');
+        }
+        $metode = 'PUT';
+    }
     $id = null;
     if (isset($_GET['id'])) {
         if (!is_string($_GET['id'])) {
@@ -32,10 +40,7 @@ try {
 
     if ($metode === 'GET') {
         if ($id !== null) {
-            $pengguna = cariPengguna($id);
-            $pengguna === null
-                ? kirimJson(404, ['berhasil' => false, 'pesan' => 'Pengguna tidak ditemukan.'])
-                : kirimJson(200, ['berhasil' => true, 'data' => $pengguna]);
+            kirimJson(200, ['berhasil' => true, 'data' => ambilDetailPengguna($id)]);
         }
         if (!is_scalar($_GET['batas'] ?? 20) || !is_scalar($_GET['offset'] ?? 0)) {
             throw new InvalidArgumentException('batas dan offset harus bilangan bulat.');
@@ -45,7 +50,7 @@ try {
         if ($batas === false || $offset === false) {
             throw new InvalidArgumentException('batas dan offset harus bilangan bulat.');
         }
-        kirimJson(200, ['berhasil' => true, 'data' => daftarPengguna($batas, $offset)]);
+        kirimJson(200, ['berhasil' => true, 'data' => ambilDaftarPengguna($batas, $offset)]);
     }
 
     if (($metode === 'PUT' || $metode === 'DELETE') && $id === null) {
@@ -56,24 +61,41 @@ try {
     }
 
     if ($metode === 'DELETE') {
-        if (!hapusPengguna($id)) {
-            kirimJson(404, ['berhasil' => false, 'pesan' => 'Pengguna tidak ditemukan.']);
+        nonaktifkanPengguna($id);
+        kirimJson(200, ['berhasil' => true, 'pesan' => 'Pengguna dinonaktifkan.']);
+    }
+
+    $foto = null;
+    if ($multipart) {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') === 'PUT') {
+            if (!function_exists('request_parse_body')) {
+                kirimJson(415, ['berhasil' => false, 'pesan' => 'PUT form-data memerlukan PHP 8.4+. Gunakan POST form-data dengan _method=PUT.']);
+            }
+            try {
+                [$data, $berkas] = request_parse_body();
+            } catch (RequestParseBodyException $exception) {
+                throw new InvalidArgumentException('Form-data tidak valid atau melebihi batas upload PHP.');
+            }
+        } else {
+            $data = $_POST;
+            $berkas = $_FILES;
         }
-        kirimJson(200, ['berhasil' => true, 'pesan' => 'Pengguna dihapus.']);
+        unset($data['_method']);
+        if (array_diff(array_keys($berkas), ['foto_url']) !== []) {
+            throw new InvalidArgumentException('Nama field file harus foto_url.');
+        }
+        if (isset($berkas['foto_url']) && ($berkas['foto_url']['error'] ?? null) !== UPLOAD_ERR_NO_FILE) {
+            $foto = $berkas['foto_url'];
+        }
+    } else {
+        $data = bacaJson();
     }
-
-    $data = bacaJson();
-    $data = validasiDataPengguna($data, $metode === 'POST');
-
     if ($metode === 'POST') {
-        $idBaru = tambahPengguna($data);
-        kirimJson(201, ['berhasil' => true, 'data' => cariPengguna($idBaru)]);
+        kirimJson(201, ['berhasil' => true, 'data' => buatPengguna($data, $foto)]);
     }
-    if (cariPengguna($id) === null) {
-        kirimJson(404, ['berhasil' => false, 'pesan' => 'Pengguna tidak ditemukan.']);
-    }
-    ubahPengguna($id, $data);
-    kirimJson(200, ['berhasil' => true, 'data' => cariPengguna($id)]);
+    kirimJson(200, ['berhasil' => true, 'data' => perbaruiPengguna($id, $data, $foto)]);
+} catch (PenggunaTidakDitemukan $exception) {
+    kirimJson(404, ['berhasil' => false, 'pesan' => $exception->getMessage()]);
 } catch (InvalidArgumentException $exception) {
     kirimJson(422, ['berhasil' => false, 'pesan' => $exception->getMessage()]);
 } catch (PDOException $exception) {

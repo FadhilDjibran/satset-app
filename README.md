@@ -58,7 +58,7 @@ satset-app/
 ## Cara Menjalankan (XAMPP)
 
 1. Salin folder `satset-app` ke `htdocs` XAMPP, lalu aktifkan Apache dan MySQL.
-2. Buat database `satset` di phpMyAdmin, lalu impor berkas di `basisdata/` (setelah tersedia).
+2. Untuk instalasi baru, impor `basisdata/migration.sql`, lalu `basisdata/seeders/data_awal.sql` di phpMyAdmin. Baca `basisdata/README.md` untuk skema lama yang sudah berisi data dan perubahan yang perlu diterapkan pada backend.
 3. Salin `.env.contoh` menjadi `.env`, lalu sesuaikan isinya.
 4. Buka `http://localhost/satset-app/gerbang/` di peramban.
 
