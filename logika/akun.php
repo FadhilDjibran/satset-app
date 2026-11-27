@@ -9,6 +9,36 @@
 
 require_once __DIR__ . '/../kueri/kueri_pengguna.php';
 require_once __DIR__ . '/../rangka/sesi.php';
+require_once __DIR__ . '/pengguna.php';
+
+/** Service registrasi publik; tidak membutuhkan atau membuat sesi login. */
+function registrasiDriver(array $input, ?array $foto = null): array
+{
+    return registrasiAkun($input, 'driver', $foto);
+}
+
+function registrasiPenumpang(array $input, ?array $foto = null): array
+{
+    return registrasiAkun($input, 'penumpang', $foto);
+}
+
+/** Peran berasal dari endpoint, bukan dari body yang dikirim guest. */
+function registrasiAkun(array $input, string $peran, ?array $foto = null): array
+{
+    if (!in_array($peran, ['driver', 'penumpang'], true)) {
+        throw new InvalidArgumentException('Registrasi hanya untuk driver atau penumpang.');
+    }
+    $diizinkan = ['nama', 'email', 'nomor_hp', 'password', 'foto_url'];
+    foreach ($input as $kolom => $_) {
+        if (!in_array($kolom, $diizinkan, true)) {
+            throw new InvalidArgumentException("Kolom {$kolom} tidak diizinkan pada registrasi. Peran dan status akun ditentukan sistem.");
+        }
+    }
+    $input['peran'] = $peran;
+    $input['status_akun'] = 'aktif';
+
+    return buatPengguna($input, $foto);
+}
 
 function loginPengguna(array $data): ?array
 {

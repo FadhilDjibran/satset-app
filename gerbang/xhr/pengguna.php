@@ -7,6 +7,7 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
 require_once __DIR__ . '/../../logika/pengguna.php';
+require_once __DIR__ . '/../../rangka/request.php';
 
 $metode = $_SERVER['REQUEST_METHOD'] ?? '';
 if (!in_array($metode, ['GET', 'POST', 'PUT', 'DELETE'], true)) {
@@ -65,35 +66,18 @@ try {
         kirimJson(200, ['berhasil' => true, 'pesan' => 'Pengguna dinonaktifkan.']);
     }
 
-    $foto = null;
+    $request = new Request();
+    $data = $request->all();
+    $foto = fotoDariBerkasPengguna($request->files());
     if ($multipart) {
-        if (($_SERVER['REQUEST_METHOD'] ?? '') === 'PUT') {
-            if (!function_exists('request_parse_body')) {
-                kirimJson(415, ['berhasil' => false, 'pesan' => 'PUT form-data memerlukan PHP 8.4+. Gunakan POST form-data dengan _method=PUT.']);
-            }
-            try {
-                [$data, $berkas] = request_parse_body();
-            } catch (RequestParseBodyException $exception) {
-                throw new InvalidArgumentException('Form-data tidak valid atau melebihi batas upload PHP.');
-            }
-        } else {
-            $data = $_POST;
-            $berkas = $_FILES;
-        }
         unset($data['_method']);
-        if (array_diff(array_keys($berkas), ['foto_url']) !== []) {
-            throw new InvalidArgumentException('Nama field file harus foto_url.');
-        }
-        if (isset($berkas['foto_url']) && ($berkas['foto_url']['error'] ?? null) !== UPLOAD_ERR_NO_FILE) {
-            $foto = $berkas['foto_url'];
-        }
-    } else {
-        $data = bacaJson();
     }
     if ($metode === 'POST') {
         kirimJson(201, ['berhasil' => true, 'data' => buatPengguna($data, $foto)]);
     }
     kirimJson(200, ['berhasil' => true, 'data' => perbaruiPengguna($id, $data, $foto)]);
+} catch (FormatRequestTidakDidukung $exception) {
+    kirimJson(415, ['berhasil' => false, 'pesan' => $exception->getMessage()]);
 } catch (PenggunaTidakDitemukan $exception) {
     kirimJson(404, ['berhasil' => false, 'pesan' => $exception->getMessage()]);
 } catch (InvalidArgumentException $exception) {

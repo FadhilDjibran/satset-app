@@ -2,6 +2,60 @@
 
 > Login/logout dan seluruh CRUD sudah menggunakan tabel `pengguna`. Respons memakai `id_pengguna` dan `foto_url`, menggantikan `id` dan `foto_profil`. Parameter URL tetap `?id=...`. Akun seed: `admin@satset.test` / `satset123`.
 
+## Registrasi driver dan penumpang (guest)
+
+Endpoint registrasi publik tidak memerlukan login, cookie sesi, atau header `X-CSRF-Token`.
+
+| Jenis akun | Metode | URL |
+|---|---|---|
+| Driver | POST | `http://localhost/satset/gerbang/xhr/registrasi-driver.php` |
+| Penumpang | POST | `http://localhost/satset/gerbang/xhr/registrasi-penumpang.php` |
+
+Di Postman, pilih Body > raw > JSON. Contoh untuk driver:
+
+```json
+{
+  "nama": "Rizky Pratama",
+  "email": "rizky.driver@example.com",
+  "nomor_hp": "081234567899",
+  "password": "rahasia123"
+}
+```
+
+Untuk penumpang, gunakan endpoint penumpang dan data nama/email/nomor HP yang berbeda. Jangan kirim `peran`, `status_akun`, ID, atau hash password: field tersebut ditentukan sistem atau ditolak. Field wajib ialah `nama`, `email`, `nomor_hp`, dan `password`. `foto_url` opsional (teks path/null pada JSON, atau File pada form-data).
+
+Untuk foto, pilih Body > form-data. Semua field wajib bertipe Text dan `foto_url` bertipe File. Biarkan Postman mengatur Content-Type multipart secara otomatis. Batas gambar sama dengan CRUD: JPG/PNG/WebP maksimal 2 MB.
+
+Respons sukses ialah 201 dengan `berhasil`, `pesan`, dan `data` profil tanpa password/hash. Peran mengikuti endpoint dan status akun selalu `aktif`. Driver mendapat data driver (offline), dompet, dan transaksi saldo awal sesuai pengaturan; kendaraan dilengkapi terpisah sebelum online. Jika salah satu proses gagal, seluruh pembuatan dibatalkan. Penumpang hanya mendapat baris pengguna.
+
+Setelah registrasi berhasil, panggil endpoint login dengan email/password baru. Registrasi tidak membuat sesi login otomatis. CRUD `pengguna.php` tetap khusus admin yang login; membuat akun guest tidak memberi akses CRUD.
+
+Status gagal: 422 untuk input tidak valid/field terlarang/gambar salah, 409 untuk email atau nomor HP duplikat, 405 untuk metode selain POST, 415 untuk Content-Type yang tidak didukung, dan 500 jika proses server/database gagal.
+
+Alur driver: `gerbang/xhr/registrasi-driver.php → registrasiDriver() di logika/akun.php → buatPengguna() di logika/pengguna.php → kueri`. Penumpang memakai pola yang sama melalui `registrasiPenumpang()`. Class `Request` pada `rangka/request.php` membaca body dan file; proses bisnis tetap di service. Kedua service juga dapat dipanggil langsung dari PHP.
+
+### Request untuk semua form
+
+`rangka/request.php` menggantikan pembaca khusus `formulir_pengguna.php`. Class ini bisa digunakan endpoint lain, termasuk kendaraan, pesanan, atau laporan. Format yang didukung: JSON, multipart/form-data, dan application/x-www-form-urlencoded. File tidak dibatasi nama/jenis di class ini; service fitur masing-masing yang memvalidasi.
+
+```php
+require_once __DIR__ . '/../../rangka/request.php';
+
+$request = new Request();
+$metode = $request->method();
+$data = $request->all();              // Semua field body, tanpa query URL atau file
+$nama = $request->input('nama');      // Satu field body
+$halaman = $request->query('halaman', 1);
+$foto = $request->file('foto_url');    // Array upload PHP atau null
+$berkas = $request->files();          // Semua field file
+```
+
+Body dibaca sekali dan disimpan dalam instance sehingga all(), input(), dan file() bisa dipanggil berulang. Buat satu instance Request per request HTTP. `file()` tidak memindahkan file atau memeriksa jenis/ukuran; service tetap memanggil helper unggahan. `Request` juga tidak memeriksa login/CSRF atau mengirim respons HTTP. Format tak didukung melempar `FormatRequestTidakDidukung` (controller mengirim 415); body JSON/form-data rusak melempar `InvalidArgumentException` (422).
+
+Pada endpoint pengguna, service `fotoDariBerkasPengguna($request->files())` memastikan nama file adalah `foto_url`. Fitur lain dapat memakai nama file berbeda. Service bisnis tetap menerima array data/file, supaya bisa dipanggil langsung dari view PHP tanpa bergantung class HTTP ini. Instance dibuat manual di controller; belum ada dependency injection otomatis.
+
+## CRUD khusus admin
+
 Jalankan Apache dan MySQL di Laragon. Impor `basisdata/migration.sql`, salin `.env.contoh` ke `.env`, lalu sesuaikan parameter `DB_*`. Gunakan URL dasar:
 
 `http://localhost/satset/gerbang/xhr/pengguna.php`

@@ -14,6 +14,16 @@ class PenggunaTidakDitemukan extends RuntimeException
 {
 }
 
+/** Aturan field upload pengguna, terpisah dari pembaca Request yang umum. */
+function fotoDariBerkasPengguna(array $berkas): ?array
+{
+    if (array_diff(array_keys($berkas), ['foto_url']) !== []) {
+        throw new InvalidArgumentException('Nama field file harus foto_url.');
+    }
+    $foto = $berkas['foto_url'] ?? null;
+    return ($foto['error'] ?? null) === UPLOAD_ERR_NO_FILE ? null : $foto;
+}
+
 /** Service daftar: aturan pagination sebelum memanggil kueri. */
 function ambilDaftarPengguna(int $batas = 20, int $offset = 0): array
 {
