@@ -56,6 +56,8 @@ Pada endpoint pengguna, service `fotoDariBerkasPengguna($request->files())` mema
 
 ## CRUD khusus admin
 
+Pengelolaan profil sendiri tersedia melalui endpoint terpisah; lihat bagian "Profil diri sendiri" di bawah.
+
 Jalankan Apache dan MySQL di Laragon. Impor `basisdata/migration.sql`, salin `.env.contoh` ke `.env`, lalu sesuaikan parameter `DB_*`. Gunakan URL dasar:
 
 `http://localhost/satset/gerbang/xhr/pengguna.php`
@@ -156,3 +158,31 @@ Respons `foto_url` berupa path relatif terhadap `gerbang/`, misalnya `unggahan/p
 Untuk mengganti foto pada PHP 8.4+, gunakan PUT `pengguna.php?id=6`, Body form-data berisi `foto_url` (File). Kolom teks lain boleh disertakan jika ingin ikut diubah. Backend membaca PUT multipart dengan `request_parse_body()`. Untuk PHP lebih lama, gunakan POST dengan `_method` (Text) = `PUT` sebagai alternatif. Update JSON biasa tetap memakai PUT.
 
 Service menyimpan foto sebelum kueri dijalankan dan membersihkan file baru jika transaksi gagal. Foto lama tidak otomatis dihapus saat diganti atau saat `foto_url` dikosongkan.
+
+## Profil diri sendiri
+
+URL: `http://localhost/satset/gerbang/xhr/profil.php` (tanpa parameter ID).
+
+| Aksi | Metode | Akses |
+|---|---|---|
+| Lihat profil sendiri | GET | Cookie login semua peran |
+| Edit profil sendiri | PUT | Cookie login dan X-CSRF-Token |
+
+Login lewat `login.php` dahulu. Postman menyimpan cookie `SATSETSESSID`; gunakan host yang sama saat mengakses profil. GET mengembalikan profil akun yang login (tanpa password/hash). Endpoint tidak menerima query URL, ID akun pada body, atau pilihan peran.
+
+Untuk edit, pilih PUT, Body > raw > JSON dan tambahkan header `X-CSRF-Token` dari login:
+
+```json
+{
+  "nama": "Rizky Pratama Baru",
+  "nomor_hp": "081234567890"
+}
+```
+
+Kirim hanya field yang ingin diubah. Sesuai FR-04, field yang dapat diubah ialah `nama`, `nomor_hp`, dan `foto_url`. Email, password, peran, status akun, serta ID tidak dapat diubah lewat endpoint profil ini. Validasi nama/nomor HP mengikuti aturan CRUD pengguna. Nomor HP tetap unik antar akun.
+
+Untuk upload, gunakan PUT, Body > form-data dengan `foto_url` bertipe File (JPG/PNG/WebP maksimal 2 MB). Header Content-Type diatur otomatis oleh Postman. Field nama dan nomor_hp boleh ikut dikirim. Untuk mengosongkan foto, gunakan JSON `{"foto_url": null}`. Alternatif PHP sebelum 8.4: POST form-data dengan `_method` (Text) = `PUT`. Foto lama tetap tersimpan di direktori; file baru dibersihkan jika penyimpanan database gagal.
+
+Respons berhasil memakai status 200 dan `data` profil terbaru. Status gagal: 401 belum login/sesi tidak aktif, 403 token CSRF salah, 422 input atau kolom tidak diizinkan, 409 nomor HP sudah digunakan, dan 415 tipe request tidak didukung.
+
+Alur: `gerbang/xhr/profil.php → wajibLogin() → ambilProfil()/perbaruiProfil() di logika/profil.php → service pengguna → kueri`. ID diberikan controller dari hasil middleware, bukan dari input client. Service profil dapat dipakai view PHP dengan ID terpercaya dari sesi setelah pemeriksaan login dan CSRF.
