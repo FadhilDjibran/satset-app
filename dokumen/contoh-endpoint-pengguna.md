@@ -4,7 +4,7 @@
 
 ## Format request endpoint aktif
 
-Login, registrasi driver/penumpang, create/update pengguna, dan edit profil memakai class `Request`. Body bisa berupa JSON, form-data, atau x-www-form-urlencoded. Di Postman, hapus header Content-Type manual saat memakai form-data agar boundary dibuat otomatis. File hanya dikirim melalui form-data; validasi field masing-masing endpoint tetap berlaku.
+Login, registrasi driver/penumpang, create/update pengguna, update kendaraan driver, dan edit profil memakai class `Request`. Body bisa berupa JSON, form-data, atau x-www-form-urlencoded. Di Postman, hapus header Content-Type manual saat memakai form-data agar boundary dibuat otomatis. File hanya dikirim melalui form-data; validasi field masing-masing endpoint tetap berlaku.
 
 GET membaca parameter dari URL, bukan body. DELETE pengguna dan POST logout tidak memerlukan body. Login dan registrasi bersifat publik. CRUD pengguna tetap khusus admin; profil untuk semua peran yang login. Aksi perubahan yang memerlukan login tetap membutuhkan cookie sesi dan header X-CSRF-Token.
 
@@ -230,3 +230,46 @@ Untuk upload, gunakan PUT, Body > form-data dengan `foto_url` bertipe File (JPG/
 Respons berhasil memakai status 200 dan `data` profil terbaru. Status gagal: 401 belum login/sesi tidak aktif, 403 token CSRF salah, 422 input atau kolom tidak diizinkan, 409 nomor HP sudah digunakan, dan 415 tipe request tidak didukung.
 
 Alur: `gerbang/xhr/profil.php → wajibLogin() → ambilProfil()/perbaruiProfil() di logika/profil.php → service pengguna → kueri`. ID diberikan controller dari hasil middleware, bukan dari input client. Service profil dapat dipakai view PHP dengan ID terpercaya dari sesi setelah pemeriksaan login dan CSRF.
+
+## Kendaraan: admin hanya lihat, driver lihat/ubah milik sendiri
+
+URL admin: `http://localhost/satset/gerbang/xhr/kendaraan.php`.
+URL driver: `http://localhost/satset/gerbang/xhr/kendaraan-saya.php`.
+
+| Aksi | Admin (`kendaraan.php`) | Driver (`kendaraan-saya.php`) |
+|---|---|---|
+| Daftar | GET, opsional `?id_driver=4&batas=20&offset=0` | Tidak tersedia; gunakan detail dengan id_kendaraan |
+| Detail | GET `?id_kendaraan=1` | GET `?id_kendaraan=1`, hanya kendaraan sendiri |
+| Ubah | Tidak tersedia | PUT `?id_kendaraan=1`, hanya kendaraan sendiri |
+| Buat/nonaktifkan | Tidak tersedia | Tidak tersedia |
+
+Admin hanya dapat membaca keseluruhan data kendaraan, memfilter berdasarkan driver, dan melihat detail. POST/PUT/PATCH/DELETE pada endpoint admin selalu ditolak dengan 405 dan header `Allow: GET`, termasuk POST dengan `_method=PUT`. Admin juga tidak dapat mengubah kendaraan lewat endpoint khusus driver karena peran diperiksa dari sesi.
+
+Login dahulu. GET hanya memerlukan cookie sesi; update driver memerlukan cookie serta `X-CSRF-Token`. Penumpang tidak dapat memakai kedua endpoint kendaraan. Akses driver ke ID kendaraan orang lain menghasilkan 404 tanpa membocorkan detail pemiliknya.
+
+Contoh PUT driver:
+
+```json
+{"warna": "Silver", "model": "Avanza Veloz"}
+```
+
+Driver boleh mengubah `merek`, `model`, `plat_nomor`, `warna`, `foto_url`, dan `jumlah_roda` (harus 4). `model` dan `foto_url` boleh null. Plat disimpan dengan huruf kapital dan harus unik. Pemilik (`id_driver`), ID kendaraan, `aktif`, dan kolom sistem tidak dapat diubah. Endpoint driver menolak query `id_driver`; ID pemilik selalu diambil dari sesi, dan SELECT maupun UPDATE dibatasi dengan `id_driver` tersebut. Data kendaraan pertama dibuat saat registrasi driver.
+
+Untuk upload foto, PUT form-data memakai key `foto_url` bertipe File dan kolom lainnya Text. Tidak perlu grup `kendaraan[...]` seperti saat registrasi. Batas file JPG/PNG/WebP 2 MB, disimpan di `gerbang/unggahan/kendaraan/`. File baru dibersihkan jika transaksi gagal. Foto lama tetap disimpan. Untuk mengosongkan foto gunakan PUT JSON `{"foto_url": null}`. Alternatif upload PHP sebelum 8.4 adalah POST pada endpoint driver `?id_kendaraan=1` dengan `_method=PUT`; POST ini hanya memperbarui kendaraan milik sendiri.
+
+Status: 200 berhasil, 401 belum login, 403 peran/CSRF tidak sesuai, 404 ID tidak ditemukan/tidak dimiliki driver, 409 plat duplikat, 422 input tidak valid, 405 metode tidak tersedia, 415 tipe request salah.
+
+Controller memanggil service pada `logika/kendaraan.php`; SQL tetap di `kueri/kueri_kendaraan.php`. Service yang dipakai endpoint driver: `ambilDetailKendaraanDriver()`, `perbaruiKendaraanDriver()`, dengan ID login terpercaya dari middleware. Endpoint admin hanya memanggil `ambilDaftarKendaraan()` dan `ambilDetailKendaraan()`.
+
+Fungsi kueri tambah/ubah/nonaktifkan dan service `buatKendaraan()`, `perbaruiKendaraanAdmin()`, `nonaktifkanKendaraan()` tetap disimpan untuk kebutuhan mendatang. Fungsi-fungsi tersebut tidak diekspos sebagai aksi pada endpoint admin saat ini.
+
+Alur backend membatasi satu kendaraan per driver. Registrasi wajib menyertakan satu kendaraan; service buatKendaraan() menolak tambahan kendaraan bagi driver yang sudah memilikinya. Skema SQL tetap memakai rancangan sebelumnya tanpa constraint atau migrasi tambahan.
+
+Endpoint driver mewajibkan parameter `id_kendaraan` untuk GET dan PUT:
+
+```text
+GET /kendaraan-saya.php?id_kendaraan=1
+PUT /kendaraan-saya.php?id_kendaraan=1
+```
+
+Tanpa parameter menghasilkan 422; ID milik driver lain menghasilkan 404. GET mengembalikan satu objek kendaraan, bukan daftar. Gunakan `data.kendaraan.id_kendaraan` dari respons registrasi. POST alternatif dengan `_method=PUT` juga tetap memerlukan `id_kendaraan` pada URL. Daftar semua kendaraan untuk admin tetap tersedia.
