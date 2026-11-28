@@ -25,8 +25,11 @@ SATSET adalah aplikasi ride-hailing berbasis web untuk kendaraan roda 4 dengan t
 | Bantuan | Panduan, laporan beserta bukti, tinjauan dan sanksi oleh admin. |
 | Rating | Penumpang dan driver saling menilai 1 sampai 5 setelah perjalanan selesai. |
 | Catatan Pesanan | Catatan satu arah dari penumpang ke driver (maksimal 150 karakter). |
+| Pengaturan | Admin melihat seluruh parameter sistem, membuka detail berdasarkan kunci, dan mengubah nilai/keterangan. |
 
 Rincian lengkap ada di dokumen Kebutuhan Sistem (UR, FR, hak akses, dan aturan bisnis BR). Setiap berkas PHP di proyek ini memuat ID FR dan BR yang menjadi tanggung jawabnya di bagian atas berkas.
+
+Panduan endpoint pengaturan khusus admin: [dokumen/contoh-endpoint-pengaturan.md](dokumen/contoh-endpoint-pengaturan.md).
 
 ## Teknologi
 
