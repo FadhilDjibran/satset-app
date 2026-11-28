@@ -34,3 +34,11 @@ function ambilNilaiPengaturan(string $kunci): ?string
     $nilai = $perintah->fetchColumn();
     return $nilai === false ? null : (string) $nilai;
 }
+
+/** Ambil semua parameter estimasi dalam satu pembacaan. */
+function ambilNilaiPengaturanTarif(): array
+{
+    return koneksiDatabase()->query("SELECT kunci, nilai FROM pengaturan
+        WHERE kunci IN ('tarif_dasar', 'tarif_per_km', 'rentang_wajar_persen')")
+        ->fetchAll(PDO::FETCH_KEY_PAIR);
+}
