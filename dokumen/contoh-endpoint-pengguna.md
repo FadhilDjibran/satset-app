@@ -2,6 +2,14 @@
 
 > Login/logout dan seluruh CRUD sudah menggunakan tabel `pengguna`. Respons memakai `id_pengguna` dan `foto_url`, menggantikan `id` dan `foto_profil`. Parameter URL tetap `?id=...`. Akun seed: `admin@satset.test` / `satset123`.
 
+## Format request endpoint aktif
+
+Login, registrasi driver/penumpang, create/update pengguna, dan edit profil memakai class `Request`. Body bisa berupa JSON, form-data, atau x-www-form-urlencoded. Di Postman, hapus header Content-Type manual saat memakai form-data agar boundary dibuat otomatis. File hanya dikirim melalui form-data; validasi field masing-masing endpoint tetap berlaku.
+
+GET membaca parameter dari URL, bukan body. DELETE pengguna dan POST logout tidak memerlukan body. Login dan registrasi bersifat publik. CRUD pengguna tetap khusus admin; profil untuk semua peran yang login. Aksi perubahan yang memerlukan login tetap membutuhkan cookie sesi dan header X-CSRF-Token.
+
+Berkas endpoint modul lain yang masih berupa kerangka komentar belum menyediakan fitur aktif; saat diimplementasikan, gunakan pola Request yang sama.
+
 ## Registrasi driver dan penumpang (guest)
 
 Endpoint registrasi publik tidak memerlukan login, cookie sesi, atau header `X-CSRF-Token`.
@@ -18,21 +26,57 @@ Di Postman, pilih Body > raw > JSON. Contoh untuk driver:
   "nama": "Rizky Pratama",
   "email": "rizky.driver@example.com",
   "nomor_hp": "081234567899",
-  "password": "rahasia123"
+  "password": "rahasia123",
+  "kendaraan": {
+    "merek": "Toyota",
+    "model": "Avanza",
+    "plat_nomor": "L 9001 XY",
+    "warna": "Hitam"
+  }
 }
 ```
 
-Untuk penumpang, gunakan endpoint penumpang dan data nama/email/nomor HP yang berbeda. Jangan kirim `peran`, `status_akun`, ID, atau hash password: field tersebut ditentukan sistem atau ditolak. Field wajib ialah `nama`, `email`, `nomor_hp`, dan `password`. `foto_url` opsional (teks path/null pada JSON, atau File pada form-data).
+Untuk penumpang, gunakan endpoint penumpang dan data nama/email/nomor HP yang berbeda, tanpa field `kendaraan`. Jangan kirim `peran`, `status_akun`, ID, atau hash password: field tersebut ditentukan sistem atau ditolak. Field akun wajib ialah `nama`, `email`, `nomor_hp`, dan `password`. `foto_url` opsional (teks path/null pada JSON, atau File pada form-data).
 
-Untuk foto, pilih Body > form-data. Semua field wajib bertipe Text dan `foto_url` bertipe File. Biarkan Postman mengatur Content-Type multipart secara otomatis. Batas gambar sama dengan CRUD: JPG/PNG/WebP maksimal 2 MB.
+Registrasi driver juga wajib mengisi `kendaraan.merek`, `kendaraan.plat_nomor`, dan `kendaraan.warna`. `model` serta `foto_url` kendaraan opsional. Batas panjang merek/model 50, plat 15, warna 30, dan path foto 255 karakter. Plat disimpan dengan huruf kapital dan harus unik. `jumlah_roda` boleh tidak dikirim; jika dikirim harus 4. ID driver, status online, saldo, dan status aktif kendaraan ditentukan sistem.
 
-Respons sukses ialah 201 dengan `berhasil`, `pesan`, dan `data` profil tanpa password/hash. Peran mengikuti endpoint dan status akun selalu `aktif`. Driver mendapat data driver (offline), dompet, dan transaksi saldo awal sesuai pengaturan; kendaraan dilengkapi terpisah sebelum online. Jika salah satu proses gagal, seluruh pembuatan dibatalkan. Penumpang hanya mendapat baris pengguna.
+Untuk foto, pilih Body > form-data. Contoh key driver:
+
+| Key | Tipe | Contoh |
+|---|---|---|
+| nama | Text | Rizky Pratama |
+| email | Text | rizky.driver@example.com |
+| nomor_hp | Text | 081234567899 |
+| password | Text | rahasia123 |
+| foto_url | File, opsional | Foto profil |
+| kendaraan[merek] | Text | Toyota |
+| kendaraan[model] | Text, opsional | Avanza |
+| kendaraan[plat_nomor] | Text | L 9001 XY |
+| kendaraan[warna] | Text | Hitam |
+| kendaraan[foto_url] | File, opsional | Foto kendaraan |
+
+Nama field tetap mengikuti kolom tabel; grup `kendaraan[...]` memisahkan foto kendaraan dari foto pengguna. Biarkan Postman mengatur Content-Type multipart secara otomatis. Batas gambar sama dengan CRUD: JPG/PNG/WebP maksimal 2 MB. Foto profil disimpan di `gerbang/unggahan/profil/`, foto kendaraan di `gerbang/unggahan/kendaraan/`.
+
+Respons sukses ialah 201 dengan `berhasil`, `pesan`, dan `data` profil tanpa password/hash. Respons driver juga memuat `data.kendaraan`. Peran mengikuti endpoint dan status akun selalu `aktif`. Driver mendapat satu kendaraan aktif roda 4, data driver default (offline, posisi kosong, Mode Searah nonaktif), dompet, serta transaksi saldo awal sesuai pengaturan. Saldo awal 0 tidak menghasilkan transaksi top-up bernominal 0. Jika salah satu proses gagal, seluruh pembuatan tabel terkait dan file baru dibatalkan. Penumpang hanya mendapat baris pengguna.
 
 Setelah registrasi berhasil, panggil endpoint login dengan email/password baru. Registrasi tidak membuat sesi login otomatis. CRUD `pengguna.php` tetap khusus admin yang login; membuat akun guest tidak memberi akses CRUD.
 
-Status gagal: 422 untuk input tidak valid/field terlarang/gambar salah, 409 untuk email atau nomor HP duplikat, 405 untuk metode selain POST, 415 untuk Content-Type yang tidak didukung, dan 500 jika proses server/database gagal.
+Status gagal: 422 untuk input tidak valid/field terlarang/gambar salah/kendaraan tidak lengkap, 409 untuk email/nomor HP/plat nomor duplikat, 405 untuk metode selain POST, 415 untuk Content-Type yang tidak didukung, dan 500 jika proses server/database gagal.
 
 Alur driver: `gerbang/xhr/registrasi-driver.php → registrasiDriver() di logika/akun.php → buatPengguna() di logika/pengguna.php → kueri`. Penumpang memakai pola yang sama melalui `registrasiPenumpang()`. Class `Request` pada `rangka/request.php` membaca body dan file; proses bisnis tetap di service. Kedua service juga dapat dipanggil langsung dari PHP.
+
+Service `buatPengguna()` membuka satu transaksi PDO, menyimpan pengguna, memanggil `siapkanDriverBaru()` (service driver) dan `buatDompetAwalDriver()` (service dompet), lalu menyimpan kendaraan. Kueri dipisahkan per tabel:
+
+| Tabel | Berkas kueri | Fungsi |
+|---|---|---|
+| pengguna | kueri/kueri_pengguna.php | tambahPengguna(), cariPengguna() |
+| driver | kueri/kueri_driver.php | tambahDriver() |
+| kendaraan | kueri/kueri_kendaraan.php | tambahKendaraan(), cariKendaraan() |
+| dompet | kueri/kueri_dompet.php | tambahDompetDriver() |
+| transaksi | kueri/kueri_transaksi.php | catatSaldoAwalDompet() |
+| pengaturan | kueri/kueri_pengaturan.php | ambilNilaiPengaturan() |
+
+Semua kueri menggunakan koneksi PDO yang sama; service terluar melakukan commit/rollback. Endpoint tetap berisi pembacaan request dan pemanggilan service. Registrasi publik driver wajib membawa kendaraan; create pengguna oleh admin masih dapat membuat driver dasar seperti sebelumnya.
 
 ### Request untuk semua form
 
@@ -64,10 +108,10 @@ Jalankan Apache dan MySQL di Laragon. Impor `basisdata/migration.sql`, salin `.e
 
 | Aksi | Metode dan URL | Body |
 |---|---|---|
-| Buat | `POST /pengguna.php` | JSON wajib |
+| Buat | `POST /pengguna.php` | JSON atau form |
 | Daftar | `GET /pengguna.php?batas=20&offset=0` | - |
 | Detail | `GET /pengguna.php?id=1` | - |
-| Ubah | `PUT /pengguna.php?id=1` | JSON berisi kolom yang diubah |
+| Ubah | `PUT /pengguna.php?id=1` | JSON atau form berisi kolom yang diubah |
 | Nonaktifkan | `DELETE /pengguna.php?id=1` | - |
 
 Untuk POST dan PUT, pilih **Body → raw → JSON** di Postman. Contoh POST:

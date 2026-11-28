@@ -9,6 +9,8 @@
 
 require_once __DIR__ . '/../kueri/kueri_pengguna.php';
 require_once __DIR__ . '/../rangka/unggahan.php';
+require_once __DIR__ . '/driver.php';
+require_once __DIR__ . '/kendaraan.php';
 
 class PenggunaTidakDitemukan extends RuntimeException
 {
@@ -159,14 +161,26 @@ function validasiDataPengguna(array $data, bool $baru): array
     return $data;
 }
 
-/** Satu transaksi agar pengguna, driver, dompet, dan saldo awal selalu konsisten. */
-function buatPengguna(array $input, ?array $foto = null): array
+/** Satu transaksi untuk pengguna, default driver/dompet, dan kendaraan jika disertakan. */
+function buatPengguna(array $input, ?array $foto = null, ?array $kendaraan = null, ?array $fotoKendaraan = null): array
 {
     if ($foto !== null) {
         $input['foto_url'] = null;
     }
     $data = validasiDataPengguna($input, true);
+    if ($kendaraan !== null) {
+        if ($data['peran'] !== 'driver') {
+            throw new InvalidArgumentException('Data kendaraan hanya untuk driver.');
+        }
+        if ($fotoKendaraan !== null) {
+            $kendaraan['foto_url'] = null;
+        }
+        $kendaraan = validasiDataKendaraan($kendaraan);
+    } elseif ($fotoKendaraan !== null) {
+        throw new InvalidArgumentException('Data kendaraan wajib diisi sebelum mengunggah foto kendaraan.');
+    }
     $urlBaru = null;
+    $urlKendaraan = null;
     $db = koneksiDatabase();
     $db->beginTransaction();
     try {
@@ -175,13 +189,18 @@ function buatPengguna(array $input, ?array $foto = null): array
         }
         $id = tambahPengguna($data);
         if ($data['peran'] === 'driver') {
-            $saldo = filter_var(bacaSaldoAwalDriver(), FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 2147483647]]);
-            if ($saldo === false) {
-                throw new RuntimeException('Pengaturan saldo awal driver belum valid.');
+            siapkanDriverBaru($id);
+        }
+        if ($kendaraan !== null) {
+            if ($fotoKendaraan !== null) {
+                $kendaraan['foto_url'] = $urlKendaraan = simpanFotoKendaraan($fotoKendaraan);
             }
-            buatDataAwalDriver($id, $saldo);
+            $idKendaraan = tambahKendaraan($id, $kendaraan);
         }
         $pengguna = ambilDetailPengguna($id);
+        if (isset($idKendaraan)) {
+            $pengguna['kendaraan'] = cariKendaraan($idKendaraan);
+        }
         $db->commit();
         return $pengguna;
     } catch (Throwable $exception) {
@@ -190,6 +209,9 @@ function buatPengguna(array $input, ?array $foto = null): array
         }
         if ($urlBaru !== null) {
             batalkanFotoProfil($urlBaru);
+        }
+        if ($urlKendaraan !== null) {
+            batalkanFotoKendaraan($urlKendaraan);
         }
         throw $exception;
     }

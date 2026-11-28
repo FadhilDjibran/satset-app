@@ -12,9 +12,9 @@ require_once __DIR__ . '/../rangka/sesi.php';
 require_once __DIR__ . '/pengguna.php';
 
 /** Service registrasi publik; tidak membutuhkan atau membuat sesi login. */
-function registrasiDriver(array $input, ?array $foto = null): array
+function registrasiDriver(array $input, ?array $foto = null, ?array $fotoKendaraan = null): array
 {
-    return registrasiAkun($input, 'driver', $foto);
+    return registrasiAkun($input, 'driver', $foto, $fotoKendaraan);
 }
 
 function registrasiPenumpang(array $input, ?array $foto = null): array
@@ -23,10 +23,22 @@ function registrasiPenumpang(array $input, ?array $foto = null): array
 }
 
 /** Peran berasal dari endpoint, bukan dari body yang dikirim guest. */
-function registrasiAkun(array $input, string $peran, ?array $foto = null): array
+function registrasiAkun(array $input, string $peran, ?array $foto = null, ?array $fotoKendaraan = null): array
 {
     if (!in_array($peran, ['driver', 'penumpang'], true)) {
         throw new InvalidArgumentException('Registrasi hanya untuk driver atau penumpang.');
+    }
+    $kendaraan = null;
+    if ($peran === 'driver') {
+        $kendaraan = $input['kendaraan'] ?? null;
+        // JSON object dan grup form-data kendaraan[...] memakai struktur yang sama.
+        if ($kendaraan instanceof stdClass) {
+            $kendaraan = (array) $kendaraan;
+        }
+        if (!is_array($kendaraan)) {
+            throw new InvalidArgumentException('Data kendaraan wajib diisi saat registrasi driver.');
+        }
+        unset($input['kendaraan']);
     }
     $diizinkan = ['nama', 'email', 'nomor_hp', 'password', 'foto_url'];
     foreach ($input as $kolom => $_) {
@@ -37,7 +49,7 @@ function registrasiAkun(array $input, string $peran, ?array $foto = null): array
     $input['peran'] = $peran;
     $input['status_akun'] = 'aktif';
 
-    return buatPengguna($input, $foto);
+    return buatPengguna($input, $foto, $kendaraan, $fotoKendaraan);
 }
 
 function loginPengguna(array $data): ?array

@@ -9,7 +9,8 @@ header('Cache-Control: no-store');
 require_once __DIR__ . '/../../logika/pengguna.php';
 require_once __DIR__ . '/../../rangka/request.php';
 
-$metode = $_SERVER['REQUEST_METHOD'] ?? '';
+$request = new Request();
+$metode = $request->method();
 if (!in_array($metode, ['GET', 'POST', 'PUT', 'DELETE'], true)) {
     header('Allow: GET, POST, PUT, DELETE');
     kirimJson(405, ['berhasil' => false, 'pesan' => 'Metode HTTP tidak didukung.']);
@@ -22,8 +23,8 @@ try {
     }
     $multipart = str_starts_with(strtolower($_SERVER['CONTENT_TYPE'] ?? ''), 'multipart/form-data;');
     // PHP memproses file multipart pada POST. _method=PUT dipakai untuk update foto.
-    if ($metode === 'POST' && $multipart && isset($_POST['_method'])) {
-        if ($_POST['_method'] !== 'PUT') {
+    if ($metode === 'POST' && $multipart && $request->input('_method') !== null) {
+        if ($request->input('_method') !== 'PUT') {
             throw new InvalidArgumentException('_method hanya boleh PUT.');
         }
         $metode = 'PUT';
@@ -66,7 +67,6 @@ try {
         kirimJson(200, ['berhasil' => true, 'pesan' => 'Pengguna dinonaktifkan.']);
     }
 
-    $request = new Request();
     $data = $request->all();
     $foto = fotoDariBerkasPengguna($request->files());
     if ($multipart) {

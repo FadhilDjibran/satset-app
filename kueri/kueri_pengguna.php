@@ -56,6 +56,7 @@ function tambahPengguna(array $data): int
     return (int) koneksiDatabase()->lastInsertId();
 }
 
+
 function ubahPengguna(int $id, array $data): bool
 {
     $diizinkan = ['nama', 'email', 'nomor_hp', 'kata_sandi_hash', 'foto_url', 'status_akun'];
@@ -77,23 +78,3 @@ function hapusPengguna(int $id): bool
     $perintah->execute(['id' => $id]);
     return cariPengguna($id) !== null;
 }
-
-/** Dipanggil di dalam transaksi pembuatan akun driver. */
-function buatDataAwalDriver(int $id, int $saldo): void
-{
-    $db = koneksiDatabase();
-    $db->prepare('INSERT INTO driver (id_driver) VALUES (?)')->execute([$id]);
-    $db->prepare('INSERT INTO dompet (id_driver, saldo) VALUES (?, ?)')->execute([$id, $saldo]);
-    $idDompet = (int) $db->lastInsertId();
-    if ($saldo > 0) {
-        $db->prepare("INSERT INTO transaksi (id_dompet, jenis, nominal, saldo_sebelum, saldo_sesudah, keterangan) VALUES (?, 'topup', ?, 0, ?, 'Saldo awal driver (simulasi)')")
-            ->execute([$idDompet, $saldo, $saldo]);
-    }
-}
-
-function bacaSaldoAwalDriver(): ?string
-{
-    $nilai = koneksiDatabase()->query("SELECT nilai FROM pengaturan WHERE kunci = 'saldo_awal_driver'")->fetchColumn();
-    return $nilai === false ? null : (string) $nilai;
-}
-

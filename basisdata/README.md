@@ -37,3 +37,5 @@ Login, logout, pembacaan profil sesi, serta CRUD pengguna sudah memakai skema ba
 | foto_profil | foto_url |
 
 Email dibatasi 100 karakter. Status akun memiliki nilai tambahan `nonaktif`. Pembuatan driver melalui `buatPengguna()` menyimpan data terkait pada tabel `driver`, `dompet`, dan transaksi saldo awal secara atomik. DELETE endpoint menonaktifkan akun, mengikuti rancangan skema yang memakai foreign key `ON DELETE RESTRICT`.
+
+Registrasi publik driver kini wajib menyertakan data `kendaraan`. Akun, kendaraan, driver, dompet, serta catatan saldo awal disimpan dalam satu transaksi. Driver memakai default offline/posisi kosong/Mode Searah nonaktif; kendaraan baru aktif dengan jumlah roda 4. Saldo awal mengikuti `pengaturan.saldo_awal_driver`. SQL pengguna, driver, kendaraan, dompet, transaksi, dan pengaturan berada pada file `kueri/kueri_<tabel>.php` masing-masing, dengan koordinasi di service `logika/`.

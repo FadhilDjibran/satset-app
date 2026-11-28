@@ -4,13 +4,13 @@ require_once __DIR__ . '/../../rangka/json.php';
 require_once __DIR__ . '/../../rangka/request.php';
 require_once __DIR__ . '/../../logika/akun.php';
 
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+$request = new Request();
+if ($request->method() !== 'POST') {
     header('Allow: POST');
     kirimJson(405, ['berhasil' => false, 'pesan' => 'Gunakan metode POST.']);
 }
 
 try {
-    $request = new Request();
     $foto = fotoDariBerkasPengguna($request->files());
     $pengguna = registrasiPenumpang($request->all(), $foto);
     kirimJson(201, ['berhasil' => true, 'pesan' => 'Registrasi penumpang berhasil. Silakan login.', 'data' => $pengguna]);
